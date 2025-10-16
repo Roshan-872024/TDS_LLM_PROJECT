@@ -125,9 +125,7 @@ def notify_evaluation_server(data, commit_sha):
     }
 
     print(f"📦 Sending evaluation payload:\n{json.dumps(payload, indent=2)}", flush=True)
-    print(f"📡 Notified evaluation server: {response.status_code}", flush=True)
 
-    
     try:
         response = requests.post(
             data.get("evaluation_url", ""),
@@ -135,11 +133,12 @@ def notify_evaluation_server(data, commit_sha):
             json=payload,
             timeout=10
         )
-        print(f"📡 Notified evaluation server: {response.status_code}")
+        print(f"📡 Notified evaluation server: {response.status_code}", flush=True)
         return response.status_code
     except Exception as e:
-        print(f"⚠️ Failed to notify evaluation server: {e}")
+        print(f"⚠️ Failed to notify evaluation server: {e}", flush=True)
         return None
+
 
 
 
