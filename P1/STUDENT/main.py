@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-import os, json, base64, requests
+import os, json, base64, requests, sys
 from openai import OpenAI
 import time
 from urllib.parse import quote_plus
@@ -124,7 +124,8 @@ def notify_evaluation_server(data, commit_sha):
         "pages_url": f"https://{GITHUB_USER}.github.io/{data['task']}_{data['nonce']}/"
     }
 
-    print(f"📦 Sending evaluation payload:\n{json.dumps(payload, indent=2)}", flush=True)
+    sys.stdout.write(f"📦 Sending evaluation payload:\n{json.dumps(payload, indent=2)}\n")
+    sys.stdout.flush()
 
     try:
         response = requests.post(
@@ -133,12 +134,13 @@ def notify_evaluation_server(data, commit_sha):
             json=payload,
             timeout=10
         )
-        print(f"📡 Notified evaluation server: {response.status_code}", flush=True)
+        sys.stdout.write(f"📡 Notified evaluation server: {response.status_code}\n")
+        sys.stdout.flush()
         return response.status_code
     except Exception as e:
-        print(f"⚠️ Failed to notify evaluation server: {e}", flush=True)
+        sys.stdout.write(f"⚠️ Failed to notify evaluation server: {e}\n")
+        sys.stdout.flush()
         return None
-
 
 
 
