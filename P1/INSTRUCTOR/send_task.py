@@ -37,12 +37,14 @@ print("Hello from code block!")
         ]
     }
 
-    # Send the JSON POST to your FastAPI server
-    response = requests.post("http://localhost:8000/handle_task", json=payload)
+    # ✅ Replace localhost with your Hugging Face API endpoint
+    SPACE_URL = "https://roshan0510-22f1000684-llm-project.hf.space/handle_task"
 
+    # Send JSON POST to Hugging Face API
+    response = requests.post(SPACE_URL, json=payload)
     # Try parsing the JSON output
     try:
-        print("✅ Response from FastAPI:", response.json())
+        print("✅ Response from Hugging Face:", response.json())
     except Exception:
         print("⚠️ Non-JSON response received:", response.text)
 

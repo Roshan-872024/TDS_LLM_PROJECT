@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 import os, json, base64, requests
 from openai import OpenAI
+import time
+from urllib.parse import quote_plus
 
 GITHUB_USER = "Roshan-872024"
 GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
@@ -58,23 +60,16 @@ def enable_github_pages(repo_name: str):
 
     if response.status_code != 201:
         raise Exception(f"Failed to enable GitHub Pages: {response.status_code}, {response.text}")
-    
-def get_sha_of_latest_commit(repo_name: str, file_path: str) -> str:
-    #takes repo name and file path as argument and returns the sha of the latest commit on that
-    #branch using github api
-    response = requests.get(
-        f"https://api.github.com/repos/Roshan-872024/{repo_name}/commits/{branch}"
-    )
-    if response.status_code != 200:
-        raise Exception(f"Failed to get sha of file: {response.status_code}, {response.text}")
-    return response.json().get("sha")
 
+
+#Push files to github repo and get the latest commit sha from the last file pushed
 def push_files_to_repo(repo_name: str, files: list[dict], round: int):
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Accept": "application/vnd.github.v3+json"
     }
-
+    
+    last_commit_sha = None
     for file in files:
         file_name = file.get("name")
         file_content = file.get("content")
@@ -82,6 +77,8 @@ def push_files_to_repo(repo_name: str, files: list[dict], round: int):
         # Encode content to base64
         if isinstance(file_content, str):
             file_content = base64.b64encode(file_content.encode("utf-8")).decode("utf-8")
+        elif isinstance(file_content, bytes):
+            file_content = base64.b64encode(file_content).decode("utf-8")
 
         # ✅ Check if the file already exists (to get its sha)
         check_url = f"https://api.github.com/repos/Roshan-872024/{repo_name}/contents/{file_name}"
@@ -104,6 +101,42 @@ def push_files_to_repo(repo_name: str, files: list[dict], round: int):
             raise Exception(
                 f"Failed to push file {file_name}: {response.status_code}, {response.text}"
             )
+            
+        try:
+            commit_sha = response.json().get("commit", {}).get("sha")
+            if commit_sha:
+                last_commit_sha = commit_sha
+        except Exception:
+            pass
+
+    return last_commit_sha
+
+
+def notify_evaluation_server(data, commit_sha):
+    """Notify the evaluation server with repo and commit details."""
+    payload = {
+        "email": data.get("email"),
+        "task": data.get("task"),
+        "round": data.get("round"),
+        "nonce": data.get("nonce"),
+        "repo_url": f"https://github.com/{GITHUB_USER}/{data['task']}_{data['nonce']}",
+        "commit_sha": commit_sha,
+        "pages_url": f"https://{GITHUB_USER}.github.io/{data['task']}_{data['nonce']}/"
+    }
+
+    try:
+        response = requests.post(
+            data.get("evaluation_url", ""),
+            headers={"Content-Type": "application/json"},
+            json=payload,
+            timeout=10
+        )
+        print(f"📡 Notified evaluation server: {response.status_code}")
+        return response.status_code
+    except Exception as e:
+        print(f"⚠️ Failed to notify evaluation server: {e}")
+        return None
+
 
 
 def write_code_with_llm(data: dict):
@@ -264,12 +297,14 @@ Return ONLY valid JSON mapping filenames to file contents, for example:
 def round1(data):
     create_github_repo(f"{data['task']}_{data['nonce']}")
     files = write_code_with_llm(data)
-    push_files_to_repo(f"{data['task']}_{data['nonce']}", files, 1)
+    commit_sha = push_files_to_repo(f"{data['task']}_{data['nonce']}", files, 1)
     enable_github_pages(f"{data['task']}_{data['nonce']}")
+    notify_evaluation_server(data, commit_sha)
 
 def round2(data):
     files = write_code_with_llm(data)
-    push_files_to_repo(f"{data['task']}_{data['nonce']}", files, 2)
+    commit_sha = push_files_to_repo(f"{data['task']}_{data['nonce']}", files, 2)
+    notify_evaluation_server(data, commit_sha)
 
 # post endpoint that takes a json object with the following fields: email, secret, task, round, nonce, 
 # brief, checks(array), evaluation_url, attachments(array with objects with fields: name, url)

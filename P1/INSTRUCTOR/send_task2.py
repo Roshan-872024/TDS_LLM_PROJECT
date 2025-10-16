@@ -26,11 +26,11 @@ def send_task_round2():
         "attachments": []
     }
 
-    print("🚀 Sending Round 2 Task to FastAPI...")
-    response = requests.post("http://localhost:8000/handle_task", json=payload)
+    print("🚀 Sending Round 2 Task to Huggingface")
+    response = requests.post("https://roshan0510-22f1000684-llm-project.hf.space/handle_task", json=payload)
 
     try:
-        print("✅ Response from FastAPI:", response.json())
+        print("✅ Response from Huggingface:", response.json())
     except Exception:
         print("⚠️ Non-JSON response received:", response.text)
 
