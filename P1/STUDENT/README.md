@@ -1,3 +1,15 @@
+---
+title: "22f1000684_llm_project"
+emoji: 🧠
+colorFrom: blue
+colorTo: pink
+sdk: docker
+sdk_version: "1.0.0"
+app_file: p1/student/main.py
+pinned: false
+---
+
+
 # 🚀 LLM Code Deployment App (IITM Modern Application Development II Project)
 
 This project demonstrates an **autonomous code deployment pipeline** powered by **FastAPI**, **GitHub Pages**, and **OpenAI’s GPT models**.  
