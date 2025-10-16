@@ -1,5 +1,5 @@
 sdk: docker
-app_file: p1/student/main.py
+#app_file: p1/student/main.py
 port: 7860
 docker:
   build_context: p1/student
