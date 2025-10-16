@@ -124,12 +124,18 @@ def notify_evaluation_server(data, commit_sha):
         "pages_url": f"https://{GITHUB_USER}.github.io/{data['task']}_{data['nonce']}/"
     }
 
-    sys.stdout.write(f"📦 Sending evaluation payload:\n{json.dumps(payload, indent=2)}\n")
+    sys.stdout.write(f"📦 Evaluation payload:\n{json.dumps(payload, indent=2)}\n")
     sys.stdout.flush()
+
+    eval_url = data.get("evaluation_url", "")
+    if not eval_url:
+        sys.stdout.write("⚠️ No evaluation_url provided, skipping notify.\n")
+        sys.stdout.flush()
+        return None
 
     try:
         response = requests.post(
-            data.get("evaluation_url", ""),
+            eval_url,
             headers={"Content-Type": "application/json"},
             json=payload,
             timeout=10
@@ -300,36 +306,108 @@ Return ONLY valid JSON mapping filenames to file contents, for example:
     return files
 
 def round1(data):
-    create_github_repo(f"{data['task']}_{data['nonce']}")
+    """
+    Create repo, generate code via LLM, push files, enable pages, notify evaluation,
+    and RETURN a dictionary with repo metadata so the POST response can include it.
+    """
+    repo_name = f"{data['task']}_{data['nonce']}"
+    sys.stdout.write(f"🚀 Round 1 start for repo: {repo_name}\n")
+    sys.stdout.flush()
+
+    # Try to create repo, but do not hard-fail if it already exists
+    try:
+        create_github_repo(repo_name)
+    except Exception as e:
+        if "name already exists" in str(e).lower():
+            sys.stdout.write(f"⚠️ Repo {repo_name} already exists — continuing.\n")
+            sys.stdout.flush()
+        else:
+            raise
+
     files = write_code_with_llm(data)
-    commit_sha = push_files_to_repo(f"{data['task']}_{data['nonce']}", files, 1)
-    enable_github_pages(f"{data['task']}_{data['nonce']}")
-    notify_evaluation_server(data, commit_sha)
+
+    # Push files and capture commit SHA returned
+    commit_sha = push_files_to_repo(repo_name, files, 1)
+
+    # Try to enable pages (may fail if already enabled)
+    try:
+        enable_github_pages(repo_name)
+    except Exception as e:
+        sys.stdout.write(f"⚠️ enable_github_pages returned: {e}\n")
+        sys.stdout.flush()
+
+    # Notify evaluation server (best-effort)
+    notify_status = notify_evaluation_server(data, commit_sha)
+
+    # Build a response payload for the caller (send_task.py or instructor)
+    result = {
+        "message": "Round 1 task processed",
+        "repo_url": f"https://github.com/{GITHUB_USER}/{repo_name}",
+        "commit_sha": commit_sha,
+        "pages_url": f"https://{GITHUB_USER}.github.io/{repo_name}/",
+        "notify_status": notify_status
+    }
+
+    sys.stdout.write(f"✅ Round1 result: {json.dumps(result)}\n")
+    sys.stdout.flush()
+    return result
+
 
 def round2(data):
-    files = write_code_with_llm(data)
-    commit_sha = push_files_to_repo(f"{data['task']}_{data['nonce']}", files, 2)
-    notify_evaluation_server(data, commit_sha)
+    """
+    Round 2: update existing repo. Return metadata like round1.
+    """
+    repo_name = f"{data['task']}_{data['nonce']}"
+    sys.stdout.write(f"🔁 Round 2 start for repo: {repo_name}\n")
+    sys.stdout.flush()
 
-# post endpoint that takes a json object with the following fields: email, secret, task, round, nonce, 
-# brief, checks(array), evaluation_url, attachments(array with objects with fields: name, url)
+    files = write_code_with_llm(data)
+    commit_sha = push_files_to_repo(repo_name, files, 2)
+
+    # Attempt to re-enable pages if necessary (graceful)
+    try:
+        enable_github_pages(repo_name)
+    except Exception as e:
+        sys.stdout.write(f"⚠️ enable_github_pages (round2) returned: {e}\n")
+        sys.stdout.flush()
+
+    notify_status = notify_evaluation_server(data, commit_sha)
+
+    result = {
+        "message": "Round 2 task processed",
+        "repo_url": f"https://github.com/{GITHUB_USER}/{repo_name}",
+        "commit_sha": commit_sha,
+        "pages_url": f"https://{GITHUB_USER}.github.io/{repo_name}/",
+        "notify_status": notify_status
+    }
+
+    sys.stdout.write(f"✅ Round2 result: {json.dumps(result)}\n")
+    sys.stdout.flush()
+    return result
+
 
 @app.post("/handle_task")
 async def handle_task(data: dict):
-    #validate secret
+    # validate secret
     if not validate_secret(data.get("secret", "")):
         return {"error": "Invalid secret"}
-    else:
-        # Process the valid task
-        #depending on the round, call different functions
-        if data.get("round") == 1:
-            round1(data)
-            return {"message": "Round 1 task processed"}
-        elif data.get("round") == 2:
-            round2(data)
-            return {"message": "Round 2 task processed"}
 
-    return {"message": "Task received successfully", "data": data}
+    # determine round and run
+    try:
+        if data.get("round") == 1:
+            result = round1(data)
+            # Return the metadata to the caller so they can see repo_url/sha/pages_url
+            return result
+        elif data.get("round") == 2:
+            result = round2(data)
+            return result
+        else:
+            return {"error": "Unsupported round"}
+    except Exception as e:
+        # Return a 500-like structure with error text for debugging caller side
+        sys.stdout.write(f"❌ Error handling task: {e}\n")
+        sys.stdout.flush()
+        return {"error": "internal_error", "detail": str(e)}
 
 # run the app with: uvicorn main:app --reload
 if __name__ == "__main__":
