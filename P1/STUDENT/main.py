@@ -124,8 +124,9 @@ def notify_evaluation_server(data, commit_sha):
         "pages_url": f"https://{GITHUB_USER}.github.io/{data['task']}_{data['nonce']}/"
     }
 
-    print("📦 Sending evaluation payload:")
-    print(json.dumps(payload, indent=2))
+    print(f"📦 Sending evaluation payload:\n{json.dumps(payload, indent=2)}", flush=True)
+    print(f"📡 Notified evaluation server: {response.status_code}", flush=True)
+
     
     try:
         response = requests.post(
