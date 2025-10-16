@@ -167,18 +167,63 @@ def root():
 
 @app.post("/handle_task")
 async def handle_task(data: dict):
-    if not validate_secret(data.get("secret", "")):
-        return {"error": "Invalid secret"}
-
     try:
+        # Validate secret
+        if not validate_secret(data.get("secret", "")):
+            return {"error": "Invalid secret"}
+
+        # Round 1
         if data.get("round") == 1:
-            result = round1(data)
+            print("🚀 Starting Round 1", flush=True)
+            repo_name = f"{data['task']}_{data['nonce']}"
+            try:
+                create_github_repo(repo_name)
+            except Exception as e:
+                if "name already exists" in str(e).lower():
+                    print(f"⚠️ Repo {repo_name} already exists, continuing...", flush=True)
+                else:
+                    raise
+
+            files = write_code_with_llm(data)
+            commit_sha = push_files_to_repo(repo_name, files, 1)
+
+            try:
+                enable_github_pages(repo_name)
+            except Exception as e:
+                print(f"⚠️ GitHub Pages enable failed: {e}", flush=True)
+
+            notify_status = notify_evaluation_server(data, commit_sha)
+
+            return {
+                "message": "Round 1 task processed successfully",
+                "repo_url": f"https://github.com/{GITHUB_USER}/{repo_name}",
+                "commit_sha": commit_sha,
+                "pages_url": f"https://{GITHUB_USER}.github.io/{repo_name}/",
+                "notify_status": notify_status
+            }
+
+        # Round 2
         elif data.get("round") == 2:
-            result = round2(data)
+            print("🔁 Starting Round 2", flush=True)
+            repo_name = f"{data['task']}_{data['nonce']}"
+            files = write_code_with_llm(data)
+            commit_sha = push_files_to_repo(repo_name, files, 2)
+            try:
+                enable_github_pages(repo_name)
+            except Exception as e:
+                print(f"⚠️ GitHub Pages enable failed: {e}", flush=True)
+            notify_status = notify_evaluation_server(data, commit_sha)
+            return {
+                "message": "Round 2 task processed successfully",
+                "repo_url": f"https://github.com/{GITHUB_USER}/{repo_name}",
+                "commit_sha": commit_sha,
+                "pages_url": f"https://{GITHUB_USER}.github.io/{repo_name}/",
+                "notify_status": notify_status
+            }
+
         else:
             return {"error": "Invalid round"}
 
-        return {"message": "Task processed successfully", **result}
     except Exception as e:
         print(f"❌ Error in handle_task: {e}", flush=True)
         return {"error": str(e)}
