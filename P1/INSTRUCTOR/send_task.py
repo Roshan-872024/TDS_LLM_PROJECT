@@ -1,4 +1,5 @@
 import requests
+import json
 
 def send_task():
     markdown_content = """# Sample Markdown
@@ -45,6 +46,7 @@ print("Hello from code block!")
     # Try parsing the JSON output
     try:
         print("✅ Response from Hugging Face:", response.json())
+        print(json.dumps(response.json(), indent=2))
     except Exception:
         print("⚠️ Non-JSON response received:", response.text)
 
