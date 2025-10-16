@@ -1,20 +1,5 @@
-# .huggingface.yml
 sdk: docker
 app_file: p1/student/main.py
 port: 7860
-
 docker:
   build_context: p1/student
-  run:
-    - pip install -r requirements.txt
-
-build:
-  docker:
-    enable: true
-
-# Optional metadata to make it auto-redeploy and run in the correct environment
-space:
-  sdk: docker
-  python_version: "3.11"
-  app_port: 7860
-  hardware: cpu-basic
