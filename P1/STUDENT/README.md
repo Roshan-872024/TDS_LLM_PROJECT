@@ -8,7 +8,6 @@ app_file: p1/student/main.py
 pinned: false
 ---
 
-
 # 🚀 LLM Code Deployment App (IITM Modern Application Development II Project)
 
 This project demonstrates an **autonomous code deployment pipeline** powered by **FastAPI**, **GitHub Pages**, and **OpenAI’s GPT models**.  
