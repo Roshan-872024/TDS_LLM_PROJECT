@@ -4,7 +4,6 @@ emoji: 🧠
 colorFrom: blue
 colorTo: pink
 sdk: docker
-sdk_version: "1.0.0"
 app_file: p1/student/main.py
 pinned: false
 ---
