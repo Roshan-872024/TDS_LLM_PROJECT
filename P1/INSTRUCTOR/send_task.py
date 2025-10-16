@@ -45,10 +45,12 @@ print("Hello from code block!")
     response = requests.post(SPACE_URL, json=payload)
     # Try parsing the JSON output
     try:
-        print("✅ Response from Hugging Face:", response.json())
-        print(json.dumps(response.json(), indent=2))
-    except Exception:
-        print("⚠️ Non-JSON response received:", response.text)
+    data = response.json()
+    print("\n✅ Full JSON Response from Hugging Face:\n")
+    print(json.dumps(data, indent=2, ensure_ascii=False))
+    except Exception as e:
+    print(f"⚠️ Non-JSON response received: {response.text}")
+
 
 
 if __name__ == "__main__":
